@@ -1,0 +1,11 @@
+# https://alchemyst.co.ke robots.txt
+
+User-agent: *
+Allow: /
+Disallow: /dashboard
+
+# Crawl delay (seconds)
+Crawl-delay: 1
+
+# Sitemaps
+Sitemap: https://alchemyst.co.ke/sitemap.xml
