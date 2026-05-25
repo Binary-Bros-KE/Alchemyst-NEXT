@@ -1,114 +1,167 @@
 import { MetadataRoute } from 'next';
 import counties from '@/data/counties.json';
-import { countyToUrl } from '@/utils/urlHelpers';
+import { blogs } from '@/data/blogs';
+import { areaToUrl, generateProfilePath, generateSeoPath } from '@/utils/urlHelpers';
 
 const BASE_URL = 'https://alchemyst.co.ke';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://alchemyst-node-tjam.onrender.com';
 
+type SitemapEntry = MetadataRoute.Sitemap[number];
+
+interface County {
+  name: string;
+  sub_counties?: string[];
+}
+
+interface Blog {
+  id: string;
+  publishDate?: string;
+}
+
 interface Profile {
   _id: string;
+  id?: string;
   username: string;
   userType: string;
   age?: number;
   gender?: string;
+  isActive?: boolean;
+  updatedAt?: string;
+  createdAt?: string;
   location?: {
     county?: string;
     location?: string;
+    area?: string | string[];
     areas?: string[];
   };
-  updatedAt?: string;
 }
 
-function generateProfileSlug(profile: Profile): string {
-  const parts: string[] = [];
+const now = new Date();
 
-  const username = profile.username
-    ?.toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '') || 'user';
-  parts.push(username);
+const withBaseUrl = (path: string) => `${BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 
-  const isSpa = profile.userType === 'spa';
+const toDate = (value?: string) => {
+  if (!value) return now;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? now : parsed;
+};
 
-  if (!isSpa) {
-    if (profile.age) {
-      parts.push('a', profile.age.toString(), 'years', 'old');
-    }
-    if (profile.gender) {
-      parts.push(profile.gender.toLowerCase().replace(/\s+/g, '-'));
-    }
+const addUnique = (entries: SitemapEntry[], seen: Set<string>, entry: SitemapEntry) => {
+  if (seen.has(entry.url)) return;
+  seen.add(entry.url);
+  entries.push(entry);
+};
+
+const getProfileAreas = (profile: Profile) => {
+  const areas = profile.location?.areas || profile.location?.area || [];
+  return (Array.isArray(areas) ? areas : [areas]).filter(Boolean);
+};
+
+const normalizeProfileForUrl = (profile: Profile) => ({
+  ...profile,
+  _id: profile._id || profile.id || '',
+  location: {
+    ...profile.location,
+    areas: getProfileAreas(profile),
+  },
+});
+
+async function fetchProfiles() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/profiles/all`, {
+      next: { revalidate: 3600 },
+    });
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const profiles: Profile[] = data.profiles || data || [];
+
+    return profiles.filter((profile) => profile._id && profile.username && profile.isActive !== false);
+  } catch (error) {
+    console.error('Sitemap: Failed to fetch profiles', error);
+    return [];
   }
-
-  parts.push(profile.userType?.toLowerCase().replace(/\s+/g, '-') || 'escort');
-
-  if (profile.location?.county) {
-    parts.push('from');
-    parts.push(
-      profile.location.county.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    );
-    if (profile.location.location) {
-      parts.push('in');
-      parts.push(
-        profile.location.location.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-      );
-      if (profile.location.areas && profile.location.areas.length > 0) {
-        parts.push('in');
-        parts.push(
-          profile.location.areas[0].toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-        );
-      }
-    }
-  }
-
-  return parts.join('-');
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Static pages
-  const staticPages: MetadataRoute.Sitemap = [
-    { url: BASE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1.0 },
-    { url: `${BASE_URL}/escorts`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
-    { url: `${BASE_URL}/masseuses`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
-    { url: `${BASE_URL}/of-models`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
-    { url: `${BASE_URL}/spas`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
-    { url: `${BASE_URL}/blog`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
-  ];
+  const entries: MetadataRoute.Sitemap = [];
+  const seen = new Set<string>();
+  const profiles = await fetchProfiles();
 
-  // County pages
-  const countyPages: MetadataRoute.Sitemap = counties.map((county) => ({
-    url: `${BASE_URL}/${countyToUrl(county.name)}`,
-    lastModified: new Date(),
-    changeFrequency: 'daily' as const,
-    priority: 0.8,
-  }));
+  [
+    { path: '/', priority: 1.0, changeFrequency: 'daily' as const },
+    { path: '/escorts', priority: 0.9, changeFrequency: 'daily' as const },
+    { path: '/masseuses', priority: 0.9, changeFrequency: 'daily' as const },
+    { path: '/of-models', priority: 0.9, changeFrequency: 'daily' as const },
+    { path: '/spas', priority: 0.9, changeFrequency: 'daily' as const },
+    { path: '/blog', priority: 0.7, changeFrequency: 'weekly' as const },
+    { path: '/login', priority: 0.2, changeFrequency: 'monthly' as const },
+    { path: '/register', priority: 0.4, changeFrequency: 'monthly' as const },
+  ].forEach((page) => {
+    addUnique(entries, seen, {
+      url: withBaseUrl(page.path),
+      lastModified: now,
+      changeFrequency: page.changeFrequency,
+      priority: page.priority,
+    });
+  });
 
-  // Fetch all profiles from API
-  let profilePages: MetadataRoute.Sitemap = [];
-  try {
-    const response = await fetch(`${API_BASE_URL}/profiles/all`, {
-      next: { revalidate: 3600 }, // Revalidate every hour
+  (blogs as Blog[]).forEach((blog) => {
+    addUnique(entries, seen, {
+      url: withBaseUrl(`/blog/${blog.id}`),
+      lastModified: toDate(blog.publishDate),
+      changeFrequency: 'monthly',
+      priority: 0.65,
+    });
+  });
+
+  (counties as County[]).forEach((county) => {
+    addUnique(entries, seen, {
+      url: withBaseUrl(generateSeoPath({ county: county.name })),
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.82,
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      const profiles: Profile[] = data.profiles || data || [];
+    county.sub_counties?.forEach((location) => {
+      addUnique(entries, seen, {
+        url: withBaseUrl(generateSeoPath({ county: county.name, location })),
+        lastModified: now,
+        changeFrequency: 'daily',
+        priority: 0.76,
+      });
+    });
+  });
 
-      profilePages = profiles.map((profile) => {
-        const userType = profile.userType?.toLowerCase() || 'escort';
-        const slug = generateProfileSlug(profile);
+  profiles.forEach((profile) => {
+    const normalizedProfile = normalizeProfileForUrl(profile);
+    const lastModified = toDate(profile.updatedAt || profile.createdAt);
+    const isSpa = profile.userType === 'spa';
 
-        return {
-          url: `${BASE_URL}/profile/${userType}/${slug}?id=${profile._id}`,
-          lastModified: profile.updatedAt ? new Date(profile.updatedAt) : new Date(),
-          changeFrequency: 'weekly' as const,
-          priority: 0.6,
-        };
+    addUnique(entries, seen, {
+      url: withBaseUrl(generateProfilePath(normalizedProfile)),
+      lastModified,
+      changeFrequency: isSpa ? 'weekly' : 'daily',
+      priority: isSpa ? 0.72 : 0.68,
+    });
+
+    const county = profile.location?.county;
+    const location = profile.location?.location;
+
+    if (county && location) {
+      getProfileAreas(profile).forEach((area) => {
+        addUnique(entries, seen, {
+          url: withBaseUrl(
+            `${generateSeoPath({ county, location })}/${areaToUrl(area)}`
+          ),
+          lastModified,
+          changeFrequency: 'daily',
+          priority: 0.7,
+        });
       });
     }
-  } catch (error) {
-    console.error('Sitemap: Failed to fetch profiles', error);
-  }
+  });
 
-  return [...staticPages, ...countyPages, ...profilePages];
+  return entries;
 }

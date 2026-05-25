@@ -1,16 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiSearch, FiMapPin, FiRefreshCw } from 'react-icons/fi';
+import { FiSearch, FiMapPin, FiRefreshCw, FiLoader } from 'react-icons/fi';
 import { GiCurlyMask, GiDualityMask } from 'react-icons/gi';
 import { LuSearchCheck } from 'react-icons/lu';
 import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Autoplay, FreeMode } from 'swiper/modules';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
-import { fetchAllProfiles } from '@/lib/features/profiles/profilesSlice';
+import { fetchAllProfiles, type Profile } from '@/lib/features/profiles/profilesSlice';
 import { setFilters, setSelectedCounty, clearFilters } from '@/lib/features/ui/uiSlice';
+import type { Filters } from '@/lib/features/ui/uiSlice';
 import type { RootState } from '@/lib/store';
 import ProfileCard from '@/components/ProfileCard';
 import SpaCard from '@/components/SpaCard';
@@ -23,6 +24,21 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/autoplay';
 
+type CountyData = {
+  code?: string | number;
+  name: string;
+  sub_counties: string[];
+  popular_areas?: string[];
+};
+
+type SearchSuggestion = {
+  type: 'county' | 'location' | 'area';
+  value: string;
+  county: string;
+};
+
+const counties = locationsData as CountyData[];
+
 export default function Home() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -33,24 +49,39 @@ export default function Home() {
   const { filters, selectedCounty } = useAppSelector((state: RootState) => state.ui);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const locationNavigationPending = isNavigating || isPending;
 
   // Fetch profiles on component mount - only once
   useEffect(() => {
     dispatch(fetchAllProfiles());
-  }, []); // Empty dependency array - only run once
+  }, [dispatch]);
 
   const updateCounty = (county: string) => {
     dispatch(setSelectedCounty(county));
   };
 
-  const updateFilters = (newFilters: any) => {
-    dispatch(setFilters(newFilters));
+  const updateFilters = (newFilters: unknown) => {
+    dispatch(setFilters(newFilters as Partial<Filters>));
   };
+
+  const navigateTo = (path: string) => {
+    setIsNavigating(true);
+    setShowSuggestions(false);
+    startTransition(() => {
+      router.push(path);
+    });
+  };
+
+  const locationSlug = (value: string) => value.toLowerCase().replace(/\s+/g, '-');
 
   // Enhanced search suggestions with better matching
   const handleSearchChange = (value: string) => {
+    if (locationNavigationPending) return;
+
     setSearchQuery(value);
 
     if (value.length < 2) {
@@ -60,11 +91,11 @@ export default function Home() {
     }
 
     const normalizedQuery = value.toLowerCase().trim();
-    const matches: any[] = [];
+    const matches: SearchSuggestion[] = [];
 
     if (selectedCounty === 'all') {
       // Search counties when "All Counties" is selected
-      (locationsData as any[]).forEach((county) => {
+      counties.forEach((county) => {
         const countyName = county.name.toLowerCase();
         const subCounties = county.sub_counties.map((sc: string) => sc.toLowerCase());
 
@@ -99,7 +130,7 @@ export default function Home() {
       });
     } else {
       // Search within selected county
-      const county = (locationsData as any[]).find((c) => c.name === selectedCounty);
+      const county = counties.find((c) => c.name === selectedCounty);
       if (!county) return;
 
       // Search locations (sub_counties)
@@ -167,20 +198,29 @@ export default function Home() {
     setShowSuggestions(uniqueMatches.length > 0);
   };
 
-  const handleSuggestionClick = (suggestion: any) => {
+  const handleSuggestionClick = (suggestion: SearchSuggestion) => {
+    if (locationNavigationPending) return;
+
+    let path = '';
+
     if (suggestion.type === 'county') {
-      router.push(`/${suggestion.value.toLowerCase()}`);
+      path = `/${locationSlug(suggestion.value)}`;
     } else if (suggestion.type === 'location') {
-      router.push(`/${suggestion.county.toLowerCase()}/${suggestion.value.toLowerCase().replace(/\s+/g, '-')}`);
+      path = `/${locationSlug(suggestion.county)}/${locationSlug(suggestion.value)}`;
     } else if (suggestion.type === 'area') {
-      router.push(`/${suggestion.county.toLowerCase()}/${suggestion.value.toLowerCase().replace(/\s+/g, '-')}`);
+      path = `/${locationSlug(suggestion.county)}/${locationSlug(suggestion.value)}`;
     }
+
+    if (path) {
+      setSearchQuery(suggestion.value);
+      navigateTo(path);
+    }
+
     setShowSuggestions(false);
-    setSearchQuery('');
   };
 
   const handleSearchSubmit = () => {
-    if (!searchQuery.trim()) return;
+    if (locationNavigationPending || !searchQuery.trim()) return;
 
     if (suggestions.length > 0) {
       handleSuggestionClick(suggestions[0]);
@@ -188,30 +228,28 @@ export default function Home() {
     }
 
     if (selectedCounty === 'all') {
-      const countyMatch = (locationsData as any[]).find((county) =>
+      const countyMatch = counties.find((county) =>
         county.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
       if (countyMatch) {
-        router.push(`/${countyMatch.name.toLowerCase()}`);
+        navigateTo(`/${locationSlug(countyMatch.name)}`);
       }
     } else {
-      const county = (locationsData as any[]).find((c) => c.name === selectedCounty);
+      const county = counties.find((c) => c.name === selectedCounty);
       if (county) {
         const locationMatch = county.sub_counties.find((loc: string) =>
           loc.toLowerCase().includes(searchQuery.toLowerCase())
         );
         if (locationMatch) {
-          router.push(`/${selectedCounty.toLowerCase()}/${locationMatch.toLowerCase().replace(/\s+/g, '-')}`);
+          navigateTo(`/${locationSlug(selectedCounty)}/${locationSlug(locationMatch)}`);
         } else {
-          router.push(`/${selectedCounty.toLowerCase()}?search=${searchQuery}`);
+          navigateTo(`/${locationSlug(selectedCounty)}?search=${encodeURIComponent(searchQuery)}`);
         }
       }
     }
-
-    setSearchQuery('');
   };
 
-  const handleFilterChange = (newFilters: any) => {
+  const handleFilterChange = (newFilters: unknown) => {
     updateFilters(newFilters);
   };
 
@@ -256,8 +294,8 @@ export default function Home() {
               </span>
               escorts
             </h1>
-            <p className="text-lg text-text-inverse/70">
-              Listing thousands of independent adult entertainers. Escorts, Masseuse, Spas, OF-Models and much more.
+            <p className="text-sm text-text-inverse/70">
+              Kenya’s largest directory of verified escorts, hot and sexy call girls, kenyan prostitutes, luxury spas and massage services. Whether you're looking for casual hook-ups, sensual massage with happy ending, of-models, or discreet video calls – we connect you directly with independent providers.
             </p>
           </div>
 
@@ -267,16 +305,17 @@ export default function Home() {
                 <div className="flex max-md:flex-col gap-2">
                   <select
                     value={selectedCounty}
+                    disabled={locationNavigationPending}
                     onChange={(e) => {
                       updateCounty(e.target.value);
                       setSearchQuery('');
                       setSuggestions([]);
                       setShowSuggestions(false);
                     }}
-                    className="max-md:w-full max-md:mb-2 px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="max-md:w-full max-md:mb-2 px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <option value="all">All Counties</option>
-                    {(locationsData as any[]).map((county) => (
+                    {counties.map((county) => (
                       <option key={county.code} value={county.name}>
                         {county.name}
                       </option>
@@ -287,17 +326,22 @@ export default function Home() {
                     <FiMapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input
                       type="text"
+                      disabled={locationNavigationPending}
                       placeholder={
-                        selectedCounty === 'all'
-                          ? 'Search counties, locations...'
-                          : 'Search locations, areas...'
+                        locationNavigationPending
+                          ? 'Opening location...'
+                          : selectedCounty === 'all'
+                            ? 'Search counties, locations...'
+                            : 'Search locations, areas...'
                       }
                       value={searchQuery}
                       onChange={(e) => handleSearchChange(e.target.value)}
-                      onFocus={() => setShowSuggestions(suggestions.length > 0)}
+                      onFocus={() => {
+                        if (!locationNavigationPending) setShowSuggestions(suggestions.length > 0);
+                      }}
                       onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
-                      className="w-full pl-12 pr-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="w-full pl-12 pr-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
                     />
 
                     {showSuggestions && suggestions.length > 0 && (
@@ -306,7 +350,8 @@ export default function Home() {
                           <button
                             key={index}
                             onClick={() => handleSuggestionClick(suggestion)}
-                            className="w-full px-4 py-3 text-left hover:bg-muted transition-colors flex items-center gap-2"
+                            disabled={locationNavigationPending}
+                            className="w-full px-4 py-3 text-left hover:bg-muted transition-colors flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <FiMapPin className="text-primary" />
                             <div className="flex-1">
@@ -325,10 +370,11 @@ export default function Home() {
 
               <button
                 onClick={handleSearchSubmit}
+                disabled={locationNavigationPending}
                 className="px-8 py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <FiSearch />
-                Search
+                {locationNavigationPending ? <FiLoader className="animate-spin" /> : <FiSearch />}
+                {locationNavigationPending ? 'Opening...' : 'Search'}
               </button>
             </div>
           </div>
@@ -377,9 +423,17 @@ export default function Home() {
             handleFilterChange({ ...filters, userType: category })
           }
           selectedCategory={filters.userType}
+          disabled={locationNavigationPending}
+          onNavigate={navigateTo}
         />
 
-        {selectedCounty && <PopularAreas county={selectedCounty} />}
+        {selectedCounty && (
+          <PopularAreas
+            county={selectedCounty}
+            disabled={locationNavigationPending}
+            onNavigate={navigateTo}
+          />
+        )}
 
         <FilterBar filters={filters} onFilterChange={handleFilterChange} />
         <div id="profiles-results"></div>
@@ -418,7 +472,7 @@ export default function Home() {
             {filters.userType === 'spa' || hasSpaFilters() ? (
               // Grid view when spa category selected or filters active
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {spas.map((spa: any) => (
+                {spas.map((spa: Profile) => (
                   <SpaCard key={spa._id} profile={spa} />
                 ))}
               </div>
@@ -444,7 +498,7 @@ export default function Home() {
                 }}
                 className="spas-carousel"
               >
-                {spas.slice(0, 10).map((spa: any) => (
+                {spas.slice(0, 10).map((spa: Profile) => (
                   <SwiperSlide key={spa._id}>
                     <SpaCard profile={spa} />
                   </SwiperSlide>
@@ -478,7 +532,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-md:gap-2">
-              {profiles.map((profile: any) => (
+              {profiles.map((profile: Profile) => (
                 <ProfileCard key={profile._id} profile={profile} />
               ))}
             </div>
@@ -486,121 +540,172 @@ export default function Home() {
         </div>
       </div>
 
-      {/* SEO Content Section */}
+      {/* Expanded SEO Content Section - Paste below your existing motion.section content */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="bg-white py-5 px-4 border-t border-b border-gray-200"
+        className="bg-white py-12 px-4 border-t border-b border-gray-200"
       >
         <div className="container mx-auto max-w-7xl">
           <div className="prose prose-lg max-w-none text-gray-700">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">
-              Find the Best Escorts, Kenyan OF-Models, Masseuses & Spas on Alchemyst
+
+            <h1 className="text-4xl font-bold text-gray-900 mb-8">
+              Kenyan Escorts | Prostitutes & Erotic Services | Sexy and hot Call Girls | Nairobi Sex Girls | Massage Services | Alchemyst
             </h1>
 
             <p className="text-xl leading-relaxed mb-6">
-              Welcome to <strong>Alchemyst</strong> - Kenya&apos;s premier platform for connecting with
-              <strong> premium escorts</strong>, <strong>skilled masseuses</strong>,
-              <strong> exclusive OF-models</strong>, and <strong>luxurious spas</strong>. Discover
-              thousands of verified profiles offering discreet, professional services with{' '}
-              <strong>no hook-up fees</strong> and complete privacy protection.
+              Welcome to <strong>Alchemyst.co.ke</strong> – Kenya’s premier destination for <strong>Nairobi escorts</strong>,
+              <strong>Kenyan prostitutes</strong>, <strong>hot call girls</strong>,
+              <strong> kutombana services</strong>, and premium adult entertainment. Whether you’re searching for
+              <strong>sex for money Nairobi</strong>, discreet <strong>hookups Nairobi</strong>, or professional
+              <strong> erotic massage</strong>, we connect you directly with verified independent providers across Kenya.
+              No hook-up fees, real photos, and complete privacy guaranteed.
             </p>
 
-            <div className="grid md:grid-cols-2 gap-8 my-8">
-              <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
-                <h3 className="text-xl font-semibold text-blue-900 mb-4 flex items-center gap-2">
-                  <GiCurlyMask />
-                  Why Choose Alchemyst?
-                </h3>
-                <ul className="space-y-3 text-blue-800">
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                    <span>
-                      <strong>No Hook-Up Fees</strong> - Connect directly with service providers
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                    <span>
-                      <strong>Thousands of Profiles</strong> - Largest selection in Kenya
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                    <span>
-                      <strong>Discreet Services</strong> - Complete privacy guaranteed
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                    <span>
-                      <strong>Independent Models</strong> - Direct communication
-                    </span>
-                  </li>
+            <p className="mb-8">
+              If you’re looking for <strong>Kenya escorts</strong>, <strong>escorts in Nairobi</strong>,
+              <strong>malaya Kenya</strong>, or <strong>sexy call girls</strong> who know how to deliver unforgettable experiences,
+              you’re in the right place. Our platform features thousands of profiles including <strong>erotic masseuses</strong>,
+              <strong>luxury spas Nairobi</strong>, <strong>Kenyan OF models</strong>, and more. From quick <strong>hook-ups near me </strong>
+              to overnight <strong>girlfriend experience Nairobi</strong>, we have options for every desire.
+            </p>
+
+            {/* Section 1: Core Services */}
+            <h2 className="text-3xl font-semibold text-gray-900 mt-12 mb-6">Why Choose Alchemyst for Nairobi Escorts & Erotic Services</h2>
+
+            <p className="mb-6">
+              We took time to understand what Kenyan men and visitors want. Our <strong>Nairobi escorts</strong> and
+              <strong> Kenyan sexy call girls and prostitutes</strong> are carefully selected for beauty, professionalism, and skill. Whether you want
+              <strong> prostitutes in Nairobi</strong> for short-time fun, <strong>sexy call girls Kenya</strong> for a night of passion,
+              or <strong>kutombana na malaya</strong> arrangements, our providers deliver. We also specialize in
+              <strong> hookups Nairobi</strong>, <strong>free hook-ups</strong>, and <strong>hook-ups near me</strong> –
+              connecting you fast with local talent in Westlands, Kilimani, Thika Road, and beyond.
+            </p>
+
+            <p className="mb-8">
+              Unlike other sites, we list <strong>independent escorts</strong>, <strong>verified escorts</strong>,
+              <strong> mature escorts Nairobi</strong>, <strong>BBW escorts Kenya</strong>, college call girls, and curvy beauties.
+              Many offer <strong>full escort services</strong>, <strong>threesome services</strong>, <strong>anal services</strong>,
+              and <strong>video call sex Kenya</strong>. Some of our <strong>OnlyFans Kenya</strong> models also do real-life meetups.
+            </p>
+
+            {/* Section 2: Erotic Massage & Spas */}
+            <h2 className="text-3xl font-semibold text-gray-900 mt-12 mb-6">Erotic Massage Nairobi, Sensual Massage & Luxury Spas</h2>
+
+            <p className="mb-6">
+              Looking for <strong>erotic massage Nairobi</strong>, <strong>sensual massage</strong>, <strong>nuru massage Kenya</strong>,
+              or <strong>happy ending massage</strong>? Our <strong>erotic masseuse</strong> and <strong>professional masseuses Nairobi </strong>
+              section is one of the strongest in Kenya. Enjoy <strong>body to body massage</strong> in top <strong>erotic spas</strong> and
+              <strong> massage parlours with extras</strong> across Nairobi, Kisumu, Mombasa, and Nakuru.
+            </p>
+
+            <p className="mb-8">
+              From <strong>luxury spas Nairobi</strong> offering full relaxation to discreet parlors on Mombasa Road and Thika Road,
+              we have everything. Many combine <strong>erotic massage</strong> with escort services for the ultimate experience.
+            </p>
+
+            {/* Section 3: Hookups & Explicit Services */}
+            <h2 className="text-3xl font-semibold text-gray-900 mt-12 mb-6">Hookups Nairobi, Sex for Money & Discreet Adult Services</h2>
+
+            <p className="mb-6">
+              Searching for <strong>hookups Nairobi</strong>, <strong>hook-ups near me</strong>, or <strong>free hook-ups</strong>?
+              Alchemyst is the fastest way to find real connections. Our members regularly post for same-day <strong>sex for money Kenya</strong>,
+              <strong> sex services</strong>, and casual encounters. We have <strong>cheap prostitutes Nairobi tonight</strong>,
+              <strong>short time escorts</strong>, and <strong>overnight sex</strong> options.
+            </p>
+
+            <p className="mb-8">
+              Explore <strong>girlfriend experience Nairobi</strong>, <strong>mature women escorts</strong>, <strong>college girls call girls</strong>,
+              and more. Many providers offer <strong>discreet hotel escorts</strong> and <strong>road side escorts Thika Road</strong>.
+            </p>
+
+            {/* Section 4: Locations */}
+            <h2 className="text-3xl font-semibold text-gray-900 mt-12 mb-6">Escorts & Call Girls Across Kenya – Location Guide</h2>
+
+            <p className="mb-6">
+              We cover the entire country. Find <strong>escorts in Kilimani</strong>, <strong>Westlands call girls</strong>,
+              <strong>Githurai prostitutes</strong>, <strong>Thika Road malaya</strong>, <strong>Kisumu escorts</strong>,
+              <strong>Mombasa call girls Bamburi</strong>, <strong>Nakuru prostitutes</strong>, and more.
+              Popular areas include Roysambu, Ruiru, Embakasi, Kasarani, Rongai, Juja, and Parklands.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-8 my-10">
+              <div>
+                <h3 className="font-semibold mb-4">Nairobi Hotspots</h3>
+                <ul className="list-disc pl-6 space-y-2">
+                  <li><strong>Escorts in Kilimani</strong>, Westlands, Lavington</li>
+                  <li><strong>Githurai prostitutes</strong> and Kasarani malaya</li>
+                  <li><strong>Thika Road escorts</strong> and Mombasa Road call girls</li>
+                  <li><strong>Nairobi airport escorts</strong> and CBD options</li>
                 </ul>
               </div>
-
-              <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
-                <h3 className="text-xl font-semibold text-purple-900 mb-4 flex items-center gap-2">
-                  <GiDualityMask />
-                  What We Offer
-                </h3>
-                <ul className="space-y-3 text-purple-800">
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></span>
-                    <span>
-                      <strong>Kenyan Escorts</strong> - Premium companionship services
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></span>
-                    <span>
-                      <strong>OF-Models</strong> - Exclusive content creators
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></span>
-                    <span>
-                      <strong>Masseuses</strong> - Professional therapeutic services
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></span>
-                    <span>
-                      <strong>Spas & Parlors</strong> - Luxury adult entertainment
-                    </span>
-                  </li>
+              <div>
+                <h3 className="font-semibold mb-4">Other Counties</h3>
+                <ul className="list-disc pl-6 space-y-2">
+                  <li><strong>Kisumu escorts</strong> and call girls</li>
+                  <li><strong>Mombasa Bamburi call girls</strong></li>
+                  <li><strong>Nakuru malaya services</strong></li>
+                  <li><strong>Eldoret escorts</strong>, Thika, Naivasha, and Coast Kenya malaya</li>
                 </ul>
               </div>
             </div>
 
-            <div className="mt-8 p-6 bg-gray-100 rounded-lg border-l-4 border-primary">
-              <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <LuSearchCheck />
-                Popular Searches:
+            <p className="mb-8">
+              Major roads where you can easily find services: Mombasa Rd, Thika Road, Waiyaki Way, Ngong Road, Outering Road,
+              Kangundo Rd, Kiambu Rd, and many more. Search <strong>escorts near me Nairobi</strong> for instant results.
+            </p>
+
+            {/* Section 5: OF Models & Unique Offerings */}
+            <h2 className="text-3xl font-semibold text-gray-900 mt-12 mb-6">Kenyan OF Models, Video Call Sex & Premium Companions</h2>
+
+            <p className="mb-6">
+              Stand out with our <strong>Kenyan OF models</strong>, <strong>OnlyFans Kenya</strong> section. Some offer
+              <strong> OF models Nairobi meetup</strong>, content creation, and real dates. Perfect for those seeking
+              <strong> video call sex Kenya</strong> or exclusive experiences.
+            </p>
+
+            <p className="mb-8">
+              We also feature <strong>premium adult services in Kenya</strong>, <strong>luxury escorts</strong>, and discreet services
+              for visitors and locals alike.
+            </p>
+
+            {/* Section 6: Trust & Call to Action */}
+            <div className="bg-gray-100 p-8 rounded-xl border-l-4 border-primary my-12">
+              <h3 className="font-bold text-2xl mb-4">Why Kenyan Gentlemen Choose Alchemyst escorts</h3>
+              <ul className="space-y-4">
+                <li className="flex gap-3"><span className="text-green-600">✓</span> Verified independent profiles</li>
+                <li className="flex gap-3"><span className="text-green-600">✓</span> Fresh daily listings for <strong>hookups Nairobi</strong> and <strong>adult services</strong></li>
+                <li className="flex gap-3"><span className="text-green-600">✓</span> Direct contact with providers – no middlemen or hook-up fees</li>
+                <li className="flex gap-3"><span className="text-green-600">✓</span> Wide variety of services – from <strong>erotic massage</strong> to <strong>girlfriend experience</strong></li>
+                <li className="flex gap-3"><span className="text-green-600">✓</span> Discreet and secure platform for all your adult needs</li>
+                <li className="flex gap-3"><span className="text-green-600">✓</span> Find Escorts offering services at affordable prices</li>
+                <li className="flex gap-3"><span className="text-green-600">✓</span> Premium escorts and sex girls for men who appreciate beauty and sophistication</li>
+              </ul>
+              <p className="mt-6 font-medium">Start exploring now – find your perfect match today.</p>
+            </div>
+
+            {/* Popular Searches Pills */}
+            <div className="mt-12 p-8 bg-gray-50 rounded-xl">
+              <h4 className="font-semibold text-xl mb-6 flex items-center gap-2">
+                Popular Searches on Alchemyst
               </h4>
-              <div className="flex flex-wrap gap-2 text-sm">
-                <span className="bg-white px-3 py-1 rounded-full border">escorts nairobi</span>
-                <span className="bg-white px-3 py-1 rounded-full border">kenyan of-models</span>
-                <span className="bg-white px-3 py-1 rounded-full border">
-                  massage services mombasa
-                </span>
-                <span className="bg-white px-3 py-1 rounded-full border">spas in kisumu</span>
-                <span className="bg-white px-3 py-1 rounded-full border">
-                  independent call girls
-                </span>
-                <span className="bg-white px-3 py-1 rounded-full border">
-                  discreet adult services
-                </span>
-                <span className="bg-white px-3 py-1 rounded-full border">premium companions</span>
-                <span className="bg-white px-3 py-1 rounded-full border">luxury spas kenya</span>
+              <div className="flex flex-wrap gap-3">
+                {["nairobi escorts", "malaya nairobi", "call girls nairobi", "kenyan prostitutes", "erotic massage nairobi",
+                  "hookups nairobi", "kutombana services", "kisumu escorts", "westlands call girls", "onlyfans kenya",
+                  "happy ending massage", "thika road malaya", "sex for money kenya", "mombasa call girls", "Nairobi Sex Girls", "premium escorts",
+                  "luxury adult services", "Hot Kenyan Escorts", "adult services"].map((term, i) => (
+                    <a key={i} href={`/${term.replace(/\s+/g, '-')}`}
+                      className="bg-white px-5 py-2.5 rounded-full border text-sm hover:bg-primary hover:text-white transition-colors">
+                      {term}
+                    </a>
+                  ))}
               </div>
             </div>
+
           </div>
         </div>
       </motion.section>
     </div>
   );
 }
-

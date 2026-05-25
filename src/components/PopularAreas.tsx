@@ -3,20 +3,38 @@
 import { useRouter } from 'next/navigation';
 import locationsData from '@/data/counties.json';
 
+type CountyData = {
+  name: string;
+  sub_counties: string[];
+};
+
 interface PopularAreasProps {
   county: string;
+  disabled?: boolean;
+  onNavigate?: (path: string) => void;
 }
 
-export default function PopularAreas({ county }: PopularAreasProps) {
+export default function PopularAreas({ county, disabled = false, onNavigate }: PopularAreasProps) {
   const router = useRouter();
 
   const handleAreaClick = (countyName: string, area?: string) => {
+    if (disabled) return;
+
+    const path = area
+      ? `/${countyName.toLowerCase()}/${area.toLowerCase().replace(/\s+/g, '-')}`
+      : `/${countyName.toLowerCase()}`;
+
+    if (onNavigate) {
+      onNavigate(path);
+      return;
+    }
+
     if (area) {
       // Navigate to specific area in county
-      router.push(`/${countyName.toLowerCase()}/${area.toLowerCase().replace(/\s+/g, '-')}`);
+      router.push(path);
     } else {
       // Navigate to county page
-      router.push(`/${countyName.toLowerCase()}`);
+      router.push(path);
     }
   };
 
@@ -42,7 +60,8 @@ export default function PopularAreas({ county }: PopularAreasProps) {
             <button
               key={index}
               onClick={() => handleAreaClick(countyName)}
-              className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-all text-sm cursor-pointer"
+              disabled={disabled}
+              className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-all text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
             >
               {countyName}
             </button>
@@ -53,7 +72,7 @@ export default function PopularAreas({ county }: PopularAreasProps) {
   }
 
   // Show areas for selected county
-  const countyData = (locationsData as any[]).find((c) => c.name === county);
+  const countyData = (locationsData as CountyData[]).find((c) => c.name === county);
   if (!countyData) return null;
 
   const areas = countyData.sub_counties || [];
@@ -66,7 +85,8 @@ export default function PopularAreas({ county }: PopularAreasProps) {
           <button
             key={index}
             onClick={() => handleAreaClick(county, area)}
-            className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-all text-sm cursor-pointer"
+            disabled={disabled}
+            className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-all text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           >
             {area}
           </button>

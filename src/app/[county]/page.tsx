@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
-import { fetchAllProfiles } from '@/lib/features/profiles/profilesSlice';
+import { fetchAllProfiles, type Profile as StoreProfile } from '@/lib/features/profiles/profilesSlice';
 import type { RootState } from '@/lib/store';
 import ProfileCard from '@/components/ProfileCard';
 import SpaCard from '@/components/SpaCard';
@@ -16,35 +16,14 @@ import { LuLeaf, LuSpade, LuSearchCheck } from 'react-icons/lu';
 import { CgGirl } from 'react-icons/cg';
 import { GiSelfLove, GiCurlyMask, GiDualityMask } from 'react-icons/gi';
 
-interface Profile {
-  _id: string;
-  username?: string;
-  userType: string;
-  packageType?: string;
-  serviceType?: string;
-  age?: number;
-  gender?: string;
-  bio?: string;
-  profileImage?: { url: string };
+interface Profile extends Omit<StoreProfile, 'location'> {
   secondaryImages?: { url: string }[];
   location?: {
     county?: string;
     location?: string;
-    area?: string[];
+    area?: string | string[];
   };
-  contact?: {
-    phoneNumber?: string;
-    hasWhatsApp?: boolean;
-  };
-  services?: { name: string }[];
-  currentPackage?: {
-    packageType?: string;
-    status?: string;
-  };
-  verification?: {
-    profileVerified?: boolean;
-  };
-  [key: string]: any;
+  purchasedPackages?: { status?: string; packageType?: string }[];
 }
 
 interface ProfilesByTier {
@@ -61,15 +40,29 @@ interface RenderSectionProps {
   description: string;
 }
 
+interface CountyData {
+  name: string;
+  coverImage?: string;
+}
+
+const DEFAULT_BG_IMAGE =
+  'https://res.cloudinary.com/dowxcmeyy/image/upload/v1760969542/alchemyst-escorts_e0cdbo.png';
+
+const getProfileAreas = (profile: Profile) => {
+  const profileArea = profile.location?.area || [];
+  return Array.isArray(profileArea) ? profileArea : [profileArea];
+};
+
 export default function LocationPage() {
   const router = useRouter();
   const params = useParams();
   const dispatch = useAppDispatch();
+  const routeParams = params as { county?: string; location?: string; area?: string };
 
   // Parse URL params - could be /:county, /:county/:location, /:county/:location/:area
-  const countyParam = params.county as string;
-  const locationParam = (params as any).location as string | undefined;
-  const areaParam = (params as any).area as string | undefined;
+  const countyParam = routeParams.county || '';
+  const locationParam = routeParams.location;
+  const areaParam = routeParams.area;
 
   // Decode URL slugs to actual names
   const county = countyParam ? urlToCounty(countyParam) : null;
@@ -80,110 +73,98 @@ export default function LocationPage() {
     (state: RootState) => state.profiles
   );
 
-  const [bgImage, setBgImage] = useState(
-    'https://res.cloudinary.com/dowxcmeyy/image/upload/v1760969542/alchemyst-escorts_e0cdbo.png'
-  );
-  const [locationsList, setLocationsList] = useState<string[]>([]);
-  const [areasList, setAreasList] = useState<string[]>([]);
-  const [profilesByTier, setProfilesByTier] = useState<ProfilesByTier>({
-    elite: [],
-    premium: [],
-    basic: [],
-  });
-  const [spasByTier, setSpasByTier] = useState<ProfilesByTier>({
-    elite: [],
-    premium: [],
-    basic: [],
-  });
-  const [localLoading, setLocalLoading] = useState(false);
-
-  // Fetch profiles on mount
+  // StoreProvider fetches profiles globally. This fallback only runs if the
+  // county page is mounted with no cached profiles and no active fetch.
   useEffect(() => {
-    dispatch(fetchAllProfiles());
+    if (!loading && allProfiles.length === 0) {
+      dispatch(fetchAllProfiles());
+    }
+  }, [allProfiles.length, dispatch, loading]);
+
+  useEffect(() => {
     window.scrollTo(0, 0);
-  }, [dispatch]);
+  }, [countyParam, locationParam, areaParam]);
 
-  // Update background image based on county
-  useEffect(() => {
-    if (!county) return;
-    const countyData = (locationsData as any[]).find(
+  const bgImage = useMemo(() => {
+    if (!county) return DEFAULT_BG_IMAGE;
+    const countyData = (locationsData as CountyData[]).find(
       (c) => c.name.toLowerCase() === county.toLowerCase()
     );
-    setBgImage(
-      countyData?.coverImage ||
-        'https://res.cloudinary.com/dowxcmeyy/image/upload/v1760969542/alchemyst-escorts_e0cdbo.png'
-    );
+    return countyData?.coverImage || DEFAULT_BG_IMAGE;
   }, [county]);
 
-  // Filter profiles and extract locations/areas from URL params
-  useEffect(() => {
-    if (!county || allProfiles.length === 0) return;
+  const { locationsList, areasList, profilesByTier, spasByTier } = useMemo(() => {
+    const emptyProfiles: ProfilesByTier = { elite: [], premium: [], basic: [] };
 
-    setLocalLoading(true);
+    if (!county || allProfiles.length === 0) {
+      return {
+        locationsList: [],
+        areasList: [],
+        profilesByTier: emptyProfiles,
+        spasByTier: { elite: [], premium: [], basic: [] },
+      };
+    }
 
-    const timer = setTimeout(() => {
-      let filtered = allProfiles.filter(
-        (p: Profile) => p.location?.county?.toLowerCase() === county.toLowerCase()
+    let filtered = (allProfiles as Profile[]).filter(
+      (p: Profile) => p.location?.county?.toLowerCase() === county.toLowerCase()
+    );
+
+    const locations = [
+      ...new Set(
+        filtered
+          .map((p: Profile) => p.location?.location)
+          .filter(Boolean) as string[]
+      ),
+    ].sort();
+
+    let areas: string[] = [];
+
+    if (location && location !== 'all') {
+      filtered = filtered.filter(
+        (p: Profile) => p.location?.location?.toLowerCase() === location.toLowerCase()
       );
 
-      const locations = [
+      areas = [
         ...new Set(
           filtered
-            .map((p: Profile) => p.location?.location)
+            .flatMap((p: Profile) => getProfileAreas(p))
             .filter(Boolean) as string[]
         ),
       ].sort();
-      setLocationsList(locations);
+    }
 
-      if (location && location !== 'all') {
-        filtered = filtered.filter(
-          (p: Profile) => p.location?.location?.toLowerCase() === location.toLowerCase()
-        );
+    if (area && area !== 'all') {
+      filtered = filtered.filter((p: Profile) =>
+        getProfileAreas(p).some((a) => a?.toLowerCase() === area.toLowerCase())
+      );
+    }
 
-        const areas = [
-          ...new Set(
-            filtered
-              .flatMap((p: Profile) => p.location?.area || [])
-              .filter(Boolean) as string[]
-          ),
-        ].sort();
-        setAreasList(areas);
+    const newProfiles: ProfilesByTier = { elite: [], premium: [], basic: [] };
+    const newSpas: ProfilesByTier = { elite: [], premium: [], basic: [] };
+
+    filtered.forEach((profile: Profile) => {
+      const activePackage =
+        profile.currentPackage?.status === 'active'
+          ? profile.currentPackage
+          : profile.purchasedPackages?.find((p: { status?: string }) => p.status === 'active');
+      const tier = (activePackage?.packageType || 'basic').toLowerCase() as
+        | 'elite'
+        | 'premium'
+        | 'basic';
+
+      if (profile.userType === 'spa') {
+        newSpas[tier].push(profile);
       } else {
-        setAreasList([]);
+        newProfiles[tier].push(profile);
       }
+    });
 
-      if (area && area !== 'all') {
-        filtered = filtered.filter((p: Profile) =>
-          p.location?.area?.some((a) => a?.toLowerCase() === area.toLowerCase())
-        );
-      }
-
-      const newProfiles: ProfilesByTier = { elite: [], premium: [], basic: [] };
-      const newSpas: ProfilesByTier = { elite: [], premium: [], basic: [] };
-
-      filtered.forEach((profile: Profile) => {
-        const activePackage =
-          profile.currentPackage?.status === 'active'
-            ? profile.currentPackage
-            : profile.purchasedPackages?.find((p: { status?: string }) => p.status === 'active');
-        const tier = (activePackage?.packageType || 'basic').toLowerCase() as
-          | 'elite'
-          | 'premium'
-          | 'basic';
-
-        if (profile.userType === 'spa') {
-          newSpas[tier].push(profile);
-        } else {
-          newProfiles[tier].push(profile);
-        }
-      });
-
-      setProfilesByTier(newProfiles);
-      setSpasByTier(newSpas);
-      setLocalLoading(false);
-    }, 50);
-
-    return () => clearTimeout(timer);
+    return {
+      locationsList: locations,
+      areasList: areas,
+      profilesByTier: newProfiles,
+      spasByTier: newSpas,
+    };
   }, [allProfiles, county, location, area]);
 
   const handleLocationClick = (loc: string) => {
@@ -244,7 +225,7 @@ export default function LocationPage() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {items.map((profile) => (
-            <ProfileCard key={profile._id} profile={profile as any} />
+            <ProfileCard key={profile._id} profile={profile as unknown as StoreProfile} />
           ))}
         </div>
       </div>
@@ -285,7 +266,7 @@ export default function LocationPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {items.map((spa) => (
-            <SpaCard key={spa._id} profile={spa as any} />
+            <SpaCard key={spa._id} profile={spa as unknown as StoreProfile} />
           ))}
         </div>
       </div>
@@ -311,7 +292,7 @@ export default function LocationPage() {
     return `Browse all locations in ${county} County`;
   };
 
-  const showLoading = (loading && allProfiles.length === 0) || localLoading;
+  const showLoading = loading && allProfiles.length === 0;
   const showNoResults =
     !showLoading && allProfiles.length > 0 && totalProfiles === 0 && totalSpas === 0;
   const showContent = !showLoading && !showNoResults;
@@ -473,7 +454,7 @@ export default function LocationPage() {
                 tier: 'premium',
                 icon: <CgGirl size={30} />,
                 items: profilesByTier.premium,
-                title: 'FEATURED INDEPENDENT MODELS',
+                title: 'PREMIUM INDEPENDENT MODELS',
                 description: `Meet ${area || location || county}'s most sought-after independent escorts with premium companionship services.`,
               })}
 
@@ -483,7 +464,7 @@ export default function LocationPage() {
                 tier: 'basic',
                 icon: <LuSpade size={30} />,
                 items: spasByTier.basic,
-                title: 'QUALITY SPAS & MASSAGE CENTERS',
+                title: 'REGULAR SPAS & MASSAGE CENTERS',
                 description: `Reliable and affordable spa services in ${area || location || county} with verified credentials.`,
               })}
 
@@ -513,15 +494,15 @@ export default function LocationPage() {
                   </h2>
 
                   <p className="text-xl leading-relaxed mb-6 max-md:text-sm">
-                    Welcome to Alchemyst's exclusive directory of premium adult
+                    Welcome to Alchemyst&apos;s exclusive directory of premium adult
                     entertainment in{' '}
                     <strong className="capitalize">
                       {location || county}
                     </strong>
-                    . Whether you're looking for <strong>sexy escorts</strong>,{' '}
+                    . Whether you&apos;re looking for <strong>sexy escorts</strong>,{' '}
                     <strong>professional masseuses</strong>,{' '}
                     <strong>exclusive OF-models</strong>, or{' '}
-                    <strong>luxurious spas</strong>, we've curated the finest
+                    <strong>luxurious spas</strong>, we&apos;ve curated the finest
                     selection of verified service providers.
                   </p>
 
@@ -636,11 +617,11 @@ export default function LocationPage() {
 
                   <div className="bg-gradient-to-r from-primary to-purple-600 rounded-2xl p-8 text-white my-8 max-md:p-4">
                     <h4 className="text-2xl font-bold mb-4 text-center">
-                      Join {location || county}'s Premier Adult Entertainment
+                      Join {location || county}&apos;s Premier Adult Entertainment
                       Community
                     </h4>
                     <p className="text-lg text-center mb-6 opacity-90 max-md:text-sm">
-                      Whether you're a service provider or seeking premium adult
+                      Whether you&apos;re a service provider or seeking premium adult
                       entertainment, Alchemyst offers the perfect platform for
                       discreet, professional connections.
                     </p>

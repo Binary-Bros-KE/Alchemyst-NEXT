@@ -44,15 +44,21 @@ const categories = [
 interface CategoryButtonsProps {
   onCategorySelect: (categoryId: string) => void;
   selectedCategory?: string;
+  disabled?: boolean;
+  onNavigate?: (path: string) => void;
 }
 
 export default function CategoryButtons({
   onCategorySelect,
   selectedCategory = 'all',
+  disabled = false,
+  onNavigate,
 }: CategoryButtonsProps) {
   const router = useRouter();
 
   const handleCategoryClick = (category: typeof categories[0]) => {
+    if (disabled) return;
+
     if (category.path === '/') {
       // For "All", stay on home page and filter
       onCategorySelect(category.id);
@@ -65,7 +71,12 @@ export default function CategoryButtons({
         spa: 'spa',
       };
       const userType = userTypeMap[category.id] || category.id;
-      router.push(`${category.path}?userType=${userType}`);
+      const path = `${category.path}?userType=${userType}`;
+      if (onNavigate) {
+        onNavigate(path);
+      } else {
+        router.push(path);
+      }
     }
   };
 
@@ -79,7 +90,8 @@ export default function CategoryButtons({
           <button
             key={category.id}
             onClick={() => handleCategoryClick(category)}
-            className={`group relative overflow-hidden rounded-2xl px-6 max-md:px-2 max-md:py-1 py-2 border-2 transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer max-md:text-sm ${
+            disabled={disabled}
+            className={`group relative overflow-hidden rounded-2xl px-6 max-md:px-2 max-md:py-1 py-2 border-2 transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer max-md:text-sm disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 disabled:hover:shadow-none ${
               isActive
                 ? `border-transparent bg-gradient-to-br ${category.color} shadow-lg scale-105`
                 : 'border-border hover:border-transparent bg-card'

@@ -20,8 +20,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Alchemyst - Kenya's Number One Erotic Services Directory",
-  description: "Discover Kenya's premier directory for erotic services. Hot Sexy Escorts, Erotic Massauses and Spa's and OF-Models. Browse hundreds of profile and find exactly what you are looking for!",
+  title: "Kenyan Escorts | Sexy Call Girls | Erotic Services | Kenyan Prostitutes | Massage and spa | Alchemyst",
+  description: "Discover verified escorts in Kenya, hot & sexy call girls, prostitutes, erotic services in nairobi, luxury spas and massage parlors. Direct contacts, no hook-up fees. Premium adult services in Nairobi, Kisumu, Mombasa & across Kenya. Discreet & independent.",
 };
 
 export default async function RootLayout({
