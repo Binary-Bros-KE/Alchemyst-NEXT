@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useState, useEffect } from "react"
+import { use, useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
@@ -28,6 +28,9 @@ import "swiper/css/free-mode"
 import "swiper/css/autoplay"
 import ProfileCard from "@/components/ProfileCard"
 import SpaCard from "@/components/SpaCard"
+import { useAppSelector } from "@/lib/hooks"
+import type { RootState } from "@/lib/store"
+import type { Profile } from "@/lib/features/profiles/profilesSlice"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://alchemyst-node-tjam.onrender.com"
 
@@ -46,12 +49,14 @@ interface PageProps {
 
 export default function ProfileDetailsPage({ params, searchParams }: PageProps) {
   const router = useRouter()
+  const { allProfiles } = useAppSelector((state: RootState) => state.profiles)
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [similarProfiles, setSimilarProfiles] = useState<any[]>([])
   const [similarSpas, setSimilarSpas] = useState<any[]>([])
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null)
+  const fetchedProfileIdRef = useRef<string | null>(null)
 
   // Unwrap params and searchParams Promises (Next.js 15+ requirement)
   const { userType, slug } = use(params)
@@ -61,11 +66,20 @@ export default function ProfileDetailsPage({ params, searchParams }: PageProps) 
 
   useEffect(() => {
     if (profileId) {
-      window.scrollTo(0, 0)
-      fetchProfile()
-      trackView()
+      const cachedProfile = allProfiles.find((item: Profile) => item._id === profileId)
+      if (cachedProfile) {
+        setProfile(cachedProfile)
+        setLoading(false)
+      }
+
+      if (fetchedProfileIdRef.current !== profileId) {
+        window.scrollTo(0, 0)
+        fetchedProfileIdRef.current = profileId
+        fetchProfile(!cachedProfile)
+        trackView()
+      }
     }
-  }, [profileId])
+  }, [profileId, allProfiles])
 
   useEffect(() => {
     if (profile) {
@@ -73,10 +87,10 @@ export default function ProfileDetailsPage({ params, searchParams }: PageProps) 
     }
   }, [profile])
 
-  const fetchProfile = async () => {
+  const fetchProfile = async (showBlockingLoader = true) => {
     if (!profileId) return
 
-    setLoading(true)
+    if (showBlockingLoader) setLoading(true)
     try {
       const response = await fetch(`${API_URL}/profiles/${userType}/${profileId}`)
       const data = await response.json()

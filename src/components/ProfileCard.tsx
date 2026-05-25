@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { FiPhone, FiCopy, FiCheckCircle } from 'react-icons/fi';
+import { FiPhone, FiCopy, FiCheckCircle, FiLoader } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { BiLocationPlus } from 'react-icons/bi';
 import { BsWhatsapp } from 'react-icons/bs';
@@ -43,6 +43,9 @@ export default function ProfileCard({ profile, imgHght }: ProfileCardProps) {
   const router = useRouter();
   const [showBio, setShowBio] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [isOpening, setIsOpening] = useState(false);
+  const profilePath = useMemo(() => generateProfilePath(profile), [profile]);
 
   const handleCopyPhone = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -69,7 +72,7 @@ export default function ProfileCard({ profile, imgHght }: ProfileCardProps) {
 
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `tel:${profile.contact?.phoneNumber}`;
+    window.open(`tel:${profile.contact?.phoneNumber}`, '_self');
     trackInteraction('call');
   };
 
@@ -80,8 +83,16 @@ export default function ProfileCard({ profile, imgHght }: ProfileCardProps) {
   };
 
   const handleViewProfile = () => {
+    if (isOpening) return;
+    setIsOpening(true);
     trackInteraction('profile_view');
-    router.push(generateProfilePath(profile));
+    startTransition(() => {
+      router.push(profilePath);
+    });
+  };
+
+  const prefetchProfile = () => {
+    router.prefetch(profilePath);
   };
 
   const trackInteraction = async (type: string) => {
@@ -158,9 +169,32 @@ export default function ProfileCard({ profile, imgHght }: ProfileCardProps) {
           : 'border-primary/20'
       }`}
       onClick={handleViewProfile}
-      onMouseEnter={() => setShowBio(true)}
+      onFocus={prefetchProfile}
+      onMouseEnter={() => {
+        prefetchProfile();
+        setShowBio(true);
+      }}
+      onTouchStart={prefetchProfile}
+      aria-busy={isOpening || isPending}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleViewProfile();
+        }
+      }}
       onMouseLeave={() => setShowBio(false)}
     >
+      {(isOpening || isPending) && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/45 text-white">
+          <div className="flex items-center gap-2 rounded-lg bg-black/70 px-4 py-2 text-sm font-semibold">
+            <FiLoader className="animate-spin" />
+            Opening profile...
+          </div>
+        </div>
+      )}
+
       {renderBadges()}
 
       <div className={`h-70 ${imgHght ? imgHght : 'max-md:h-50'} relative overflow-hidden`}>
@@ -289,4 +323,3 @@ export default function ProfileCard({ profile, imgHght }: ProfileCardProps) {
     </motion.div>
   );
 }
-

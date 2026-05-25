@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { FiCheckCircle, FiMapPin, FiChevronLeft, FiChevronRight } from "react-icons/fi"
+import { FiCheckCircle, FiMapPin, FiChevronLeft, FiChevronRight, FiLoader } from "react-icons/fi"
 import { motion } from "framer-motion"
 import { generateProfilePath } from "@/utils/urlHelpers"
 
@@ -30,6 +30,8 @@ interface SimilarProfilesCarouselProps {
 
 export default function SimilarProfilesCarousel({ profiles, title = "Similar Profiles Nearby" }: SimilarProfilesCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [openingProfileId, setOpeningProfileId] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
   if (!profiles || profiles.length === 0) return null
@@ -49,7 +51,14 @@ export default function SimilarProfilesCarousel({ profiles, title = "Similar Pro
 
   const handleProfileClick = (profile: Profile) => {
     const path = generateProfilePath(profile)
-    router.push(path)
+    setOpeningProfileId(profile._id)
+    startTransition(() => {
+      router.push(path)
+    })
+  }
+
+  const prefetchProfile = (profile: Profile) => {
+    router.prefetch(generateProfilePath(profile))
   }
 
   return (
@@ -70,8 +79,28 @@ export default function SimilarProfilesCarousel({ profiles, title = "Similar Pro
                 transition={{ delay: idx * 0.1 }}
                 className="bg-neutral-800 rounded-xl overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-300 group"
                 onClick={() => handleProfileClick(profile)}
+                onFocus={() => prefetchProfile(profile)}
+                onMouseEnter={() => prefetchProfile(profile)}
+                onTouchStart={() => prefetchProfile(profile)}
+                aria-busy={openingProfileId === profile._id || isPending}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault()
+                    handleProfileClick(profile)
+                  }
+                }}
               >
                 <div className="relative h-64 overflow-hidden">
+                  {openingProfileId === profile._id && (
+                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45 text-white">
+                      <div className="flex items-center gap-2 rounded-lg bg-black/70 px-4 py-2 text-sm font-semibold">
+                        <FiLoader className="animate-spin" />
+                        Opening...
+                      </div>
+                    </div>
+                  )}
                   <img
                     src={profile.profileImage?.url || "https://placehold.co/300x400/232323/FFF?text=Profile"}
                     alt={profile.username}
