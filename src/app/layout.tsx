@@ -31,15 +31,6 @@ export default function RootLayout({
   return (
     <html lang="en" className="adult-consent-pending">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Script id="adult-consent-lock" strategy="beforeInteractive">
-          {`try {
-            const consent = localStorage.getItem('adult_consent_ts');
-            const ts = Number(consent);
-            const hasConsent = consent && !Number.isNaN(ts) && Date.now() - ts < 25 * 60 * 60 * 1000;
-            const html = document.documentElement;
-            html.classList.toggle('adult-consent-pending', !hasConsent);
-          } catch (error) {}`}
-        </Script>
 
         <StoreProvider>
           <ClientOverlays />
