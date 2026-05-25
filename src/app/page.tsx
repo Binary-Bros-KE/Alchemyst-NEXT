@@ -10,6 +10,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Autoplay, FreeMode } from 'swiper/modules';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { setFilters, setSelectedCounty, clearFilters } from '@/lib/features/ui/uiSlice';
+import { fetchAllProfiles } from '@/lib/features/profiles/profilesSlice';
 import type { RootState } from '@/lib/store';
 import ProfileCard from '@/components/ProfileCard';
 import SpaCard from '@/components/SpaCard';
