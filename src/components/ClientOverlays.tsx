@@ -1,28 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAppDispatch } from '@/lib/hooks';
+import { useState, useLayoutEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { hasAdultConsent } from '@/utils/consent';
 import AdultConsentModal from '@/components/AdultConsentModal';
 import TelegramModal from '@/components/TelegramModal';
 import ScrollToTop from '@/components/ScrollToTop';
 import { fetchAllProfiles } from '@/lib/features/profiles/profilesSlice';
+import type { RootState } from '@/lib/store';
 
 export default function ClientOverlays() {
   const dispatch = useAppDispatch();
+  const lastFetchTime = useAppSelector((state: RootState) => state.profiles.lastFetchTime);
   const [showConsent, setShowConsent] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const consent = hasAdultConsent();
+    const html = document.documentElement;
+
     if (!consent) {
-      document.documentElement.classList.add('adult-consent-pending');
+      html.classList.add('adult-consent-pending');
       setShowConsent(true);
     } else {
-      document.documentElement.classList.remove('adult-consent-pending');
+      html.classList.remove('adult-consent-pending');
     }
 
-    dispatch(fetchAllProfiles());
-  }, [dispatch]);
+    if (lastFetchTime === null) {
+      dispatch(fetchAllProfiles());
+    }
+  }, [dispatch, lastFetchTime]);
 
   const handleConsentClose = () => {
     document.documentElement.classList.remove('adult-consent-pending');

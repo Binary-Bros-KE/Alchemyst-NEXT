@@ -29,23 +29,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="adult-consent-pending">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Script id="adult-consent-lock" strategy="beforeInteractive">
           {`try {
             const consent = localStorage.getItem('adult_consent_ts');
             const ts = Number(consent);
             const hasConsent = consent && !Number.isNaN(ts) && Date.now() - ts < 25 * 60 * 60 * 1000;
-            if (!hasConsent) {
-              document.documentElement.classList.add('adult-consent-pending');
-            }
+            const html = document.documentElement;
+            html.classList.toggle('adult-consent-pending', !hasConsent);
           } catch (error) {}`}
         </Script>
 
         <StoreProvider>
           <ClientOverlays />
 
-          <div id="page-shell" className="flex flex-col min-h-screen bg-slate-900">
+          <div className="flex flex-col min-h-screen bg-slate-900">
             <Toaster
               position="top-right"
               toastOptions={{
