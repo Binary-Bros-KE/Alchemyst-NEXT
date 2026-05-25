@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import StoreProvider from "./StoreProvider";
@@ -29,12 +28,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="adult-consent-pending">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         <StoreProvider>
-          <ClientOverlays />
-
           <div className="flex flex-col min-h-screen bg-slate-900">
             <Toaster
               position="top-right"
@@ -47,6 +45,7 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
+            <ClientOverlays />
           </div>
         </StoreProvider>
       </body>
