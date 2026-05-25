@@ -213,6 +213,21 @@ html {
   scroll-behavior: smooth;
 }
 
+html.adult-consent-pending #page-shell {
+  filter: blur(12px) brightness(0.5);
+  pointer-events: none;
+  user-select: none;
+}
+
+html.adult-consent-pending #page-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 999998;
+  pointer-events: none;
+}
+
 /* Body Default Styles */
 body {
   font-family: "Fredoka", sans-serif;

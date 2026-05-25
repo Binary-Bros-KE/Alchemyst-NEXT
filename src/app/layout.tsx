@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import StoreProvider from "./StoreProvider";
@@ -29,11 +30,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Script id="adult-consent-lock" strategy="beforeInteractive">
+          {`try {
+            const consent = localStorage.getItem('adult_consent_ts');
+            const ts = Number(consent);
+            const hasConsent = consent && !Number.isNaN(ts) && Date.now() - ts < 25 * 60 * 60 * 1000;
+            if (!hasConsent) {
+              document.documentElement.classList.add('adult-consent-pending');
+            }
+          } catch (error) {}`}
+        </Script>
+
         <StoreProvider>
-          <div className="flex flex-col min-h-screen bg-slate-900">
+          <ClientOverlays />
+
+          <div id="page-shell" className="flex flex-col min-h-screen bg-slate-900">
             <Toaster
               position="top-right"
               toastOptions={{
@@ -45,7 +57,6 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
-            <ClientOverlays />
           </div>
         </StoreProvider>
       </body>
