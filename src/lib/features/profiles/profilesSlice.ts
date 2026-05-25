@@ -71,7 +71,7 @@ const initialState: ProfilesState = {
   allProfiles: [],
   filteredProfiles: [],
   filteredSpas: [],
-  loading: false,
+  loading: true,
   error: null,
   lastFetchTime: null,
   totalCount: 0,

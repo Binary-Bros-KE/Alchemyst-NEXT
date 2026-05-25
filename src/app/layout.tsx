@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 import StoreProvider from "./StoreProvider";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ClientOverlays from "@/components/ClientOverlays";
 import { Toaster } from "react-hot-toast";
+import { ADULT_CONSENT_COOKIE, isAdultConsentTimestampValid } from "@/utils/consent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,11 +24,16 @@ export const metadata: Metadata = {
   description: "Discover Kenya's premier directory for erotic services. Hot Sexy Escorts, Erotic Massauses and Spa's and OF-Models. Browse hundreds of profile and find exactly what you are looking for!",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const initialShowConsent = !isAdultConsentTimestampValid(
+    cookieStore.get(ADULT_CONSENT_COOKIE)?.value
+  );
+
   return (
     <html lang="en">
       <body
@@ -45,7 +52,7 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
-            <ClientOverlays />
+            <ClientOverlays initialShowConsent={initialShowConsent} />
           </div>
         </StoreProvider>
       </body>

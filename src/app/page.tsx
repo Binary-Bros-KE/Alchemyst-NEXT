@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FiSearch, FiMapPin, FiRefreshCw } from 'react-icons/fi';
 import { GiCurlyMask, GiDualityMask } from 'react-icons/gi';
@@ -9,8 +9,8 @@ import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Autoplay, FreeMode } from 'swiper/modules';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
-import { setFilters, setSelectedCounty, clearFilters } from '@/lib/features/ui/uiSlice';
 import { fetchAllProfiles } from '@/lib/features/profiles/profilesSlice';
+import { setFilters, setSelectedCounty, clearFilters } from '@/lib/features/ui/uiSlice';
 import type { RootState } from '@/lib/store';
 import ProfileCard from '@/components/ProfileCard';
 import SpaCard from '@/components/SpaCard';
@@ -27,7 +27,7 @@ export default function Home() {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
-  const { filteredProfiles: profiles, filteredSpas: spas, loading, error, lastFetchTime } = useAppSelector(
+  const { filteredProfiles: profiles, filteredSpas: spas, loading, error } = useAppSelector(
     (state: RootState) => state.profiles
   );
   const { filters, selectedCounty } = useAppSelector((state: RootState) => state.ui);
@@ -37,11 +37,9 @@ export default function Home() {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Fetch profiles on component mount - only once
-  const isInitialProfileLoad =
-    profiles.length === 0 &&
-    !loading &&
-    lastFetchTime === null &&
-    !error;
+  useEffect(() => {
+    dispatch(fetchAllProfiles());
+  }, []); // Empty dependency array - only run once
 
   const updateCounty = (county: string) => {
     dispatch(setSelectedCounty(county));
@@ -460,7 +458,7 @@ export default function Home() {
         <div>
           <h2 className="text-2xl font-bold text-foreground mb-6">{getProfilesTitle()}</h2>
 
-          {isInitialProfileLoad || loading ? (
+          {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {[...Array(50)].map((_, i) => (
                 <div key={i} className="aspect-[3/4] bg-muted animate-pulse rounded-lg" />

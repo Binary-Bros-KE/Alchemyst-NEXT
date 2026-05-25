@@ -213,17 +213,6 @@ html {
   scroll-behavior: smooth;
 }
 
-html.adult-consent-pending #page-shell {
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none;
-  user-select: none;
-}
-
-html.adult-consent-pending body {
-  overflow: hidden;
-}
-
 /* Body Default Styles */
 body {
   font-family: "Fredoka", sans-serif;

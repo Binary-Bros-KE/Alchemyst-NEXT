@@ -6,13 +6,19 @@ import AdultConsentModal from '@/components/AdultConsentModal';
 import TelegramModal from '@/components/TelegramModal';
 import ScrollToTop from '@/components/ScrollToTop';
 
-export default function ClientOverlays() {
-  const [showConsent, setShowConsent] = useState(false);
+interface ClientOverlaysProps {
+  initialShowConsent?: boolean;
+}
+
+export default function ClientOverlays({ initialShowConsent = true }: ClientOverlaysProps) {
+  const [showConsent, setShowConsent] = useState(initialShowConsent);
 
   useEffect(() => {
-    if (!hasAdultConsent()) {
-      setShowConsent(true);
-    }
+    const frame = window.requestAnimationFrame(() => {
+      setShowConsent(!hasAdultConsent());
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   return (
