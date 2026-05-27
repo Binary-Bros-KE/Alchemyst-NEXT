@@ -557,7 +557,7 @@ export default function Home() {
             <p className="text-xl leading-relaxed mb-6">
               Welcome to <strong>Alchemyst.co.ke</strong> – Kenya’s premier destination for <strong>Nairobi escorts</strong>,
               <strong>Kenyan prostitutes</strong>, <strong>hot call girls</strong>,
-              <strong> kutombana services</strong>, and premium adult entertainment. Whether you’re searching for
+              <strong> erotic services</strong>, and premium adult entertainment. Whether you’re searching for
               <strong>sex for money Nairobi</strong>, discreet <strong>hookups Nairobi</strong>, or professional
               <strong> erotic massage</strong>, we connect you directly with verified independent providers across Kenya.
               No hook-up fees, real photos, and complete privacy guaranteed.
@@ -565,7 +565,7 @@ export default function Home() {
 
             <p className="mb-8">
               If you’re looking for <strong>Kenya escorts</strong>, <strong>escorts in Nairobi</strong>,
-              <strong>malaya Kenya</strong>, or <strong>sexy call girls</strong> who know how to deliver unforgettable experiences,
+         or <strong>sexy call girls</strong> who know how to deliver unforgettable experiences,
               you’re in the right place. Our platform features thousands of profiles including <strong>erotic masseuses</strong>,
               <strong>luxury spas Nairobi</strong>, <strong>Kenyan OF models</strong>, and more. From quick <strong>hook-ups near me </strong>
               to overnight <strong>girlfriend experience Nairobi</strong>, we have options for every desire.
@@ -578,7 +578,7 @@ export default function Home() {
               We took time to understand what Kenyan men and visitors want. Our <strong>Nairobi escorts</strong> and
               <strong> Kenyan sexy call girls and prostitutes</strong> are carefully selected for beauty, professionalism, and skill. Whether you want
               <strong> prostitutes in Nairobi</strong> for short-time fun, <strong>sexy call girls Kenya</strong> for a night of passion,
-              or <strong>kutombana na malaya</strong> arrangements, our providers deliver. We also specialize in
+              our providers deliver. We also specialize in
               <strong> hookups Nairobi</strong>, <strong>free hook-ups</strong>, and <strong>hook-ups near me</strong> –
               connecting you fast with local talent in Westlands, Kilimani, Thika Road, and beyond.
             </p>
@@ -625,7 +625,7 @@ export default function Home() {
 
             <p className="mb-6">
               We cover the entire country. Find <strong>escorts in Kilimani</strong>, <strong>Westlands call girls</strong>,
-              <strong>Githurai prostitutes</strong>, <strong>Thika Road malaya</strong>, <strong>Kisumu escorts</strong>,
+              <strong>Githurai prostitutes</strong>, <strong>Thika Road prostitutes</strong>, <strong>Kisumu escorts</strong>,
               <strong>Mombasa call girls Bamburi</strong>, <strong>Nakuru prostitutes</strong>, and more.
               Popular areas include Roysambu, Ruiru, Embakasi, Kasarani, Rongai, Juja, and Parklands.
             </p>
@@ -635,7 +635,7 @@ export default function Home() {
                 <h3 className="font-semibold mb-4">Nairobi Hotspots</h3>
                 <ul className="list-disc pl-6 space-y-2">
                   <li><strong>Escorts in Kilimani</strong>, Westlands, Lavington</li>
-                  <li><strong>Githurai prostitutes</strong> and Kasarani malaya</li>
+                  <li><strong>Githurai prostitutes</strong> and Kasarani prostitutes</li>
                   <li><strong>Thika Road escorts</strong> and Mombasa Road call girls</li>
                   <li><strong>Nairobi airport escorts</strong> and CBD options</li>
                 </ul>
@@ -645,8 +645,8 @@ export default function Home() {
                 <ul className="list-disc pl-6 space-y-2">
                   <li><strong>Kisumu escorts</strong> and call girls</li>
                   <li><strong>Mombasa Bamburi call girls</strong></li>
-                  <li><strong>Nakuru malaya services</strong></li>
-                  <li><strong>Eldoret escorts</strong>, Thika, Naivasha, and Coast Kenya malaya</li>
+                  <li><strong>Nakuru adult services</strong></li>
+                  <li><strong>Eldoret escorts</strong>, Thika, Naivasha, and Coast Kenya prostitutes</li>
                 </ul>
               </div>
             </div>
@@ -691,9 +691,9 @@ export default function Home() {
                 Popular Searches on Alchemyst
               </h4>
               <div className="flex flex-wrap gap-3">
-                {["nairobi escorts", "malaya nairobi", "call girls nairobi", "kenyan prostitutes", "erotic massage nairobi",
-                  "hookups nairobi", "kutombana services", "kisumu escorts", "westlands call girls", "onlyfans kenya",
-                  "happy ending massage", "thika road malaya", "sex for money kenya", "mombasa call girls", "Nairobi Sex Girls", "premium escorts",
+                {["nairobi escorts", "prostitutes nairobi", "call girls nairobi", "kenyan prostitutes", "erotic massage nairobi",
+                  "hookups nairobi", "erotic services", "kisumu escorts", "westlands call girls", "onlyfans kenya",
+                  "happy ending massage", "thika road escorts", "sex for money kenya", "mombasa call girls", "Nairobi Sex Girls", "premium escorts",
                   "luxury adult services", "Hot Kenyan Escorts", "adult services"].map((term, i) => (
                     <a key={i} href={`/${term.replace(/\s+/g, '-')}`}
                       className="bg-white px-5 py-2.5 rounded-full border text-sm hover:bg-primary hover:text-white transition-colors">
