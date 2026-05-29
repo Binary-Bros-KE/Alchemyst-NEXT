@@ -295,9 +295,6 @@ export default function MpesaPayment({ onClose, amount, onSuccess }: MpesaPaymen
                 </div>
               ) : (
                 <div className="mb-6">
-                  <div className="flex justify-center mb-4">
-                    <img src="/payment/loading-colors.gif" className="h-20" alt="Loading" />
-                  </div>
                   <div className="bg-success/10 border border-success/30 rounded-lg p-4 text-center">
                     <AiOutlineCheckCircle className="text-success text-4xl mx-auto mb-2" />
                     <p className="text-text-primary font-medium">
